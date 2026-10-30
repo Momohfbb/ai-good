@@ -237,6 +237,16 @@ def create_app(data_dir: Path | None = None, telegram_api: str = "https://api.te
         return {"ok": True, "version": __version__, "setup_needed": not svc.access.has_account(),
                 "emergency": svc.engine.emergency}
 
+    @app.get("/api/auth/local-setup-key")
+    async def local_setup_key(request: Request):
+        """First run only: hand the setup key to a browser on this same computer, so the owner does not
+        have to find ADMIN_KEY.txt. Anyone on this PC can read that file anyway; other devices get 404."""
+        svc = S(request)
+        host = request.client.host if request.client else ""
+        if svc.access.has_account() or host not in ("127.0.0.1", "::1"):
+            raise HTTPException(404, "not_available")
+        return {"setup_key": svc.access.setup_key}
+
     @app.post("/api/auth/setup")
     async def setup(body: SetupIn, request: Request):
         ok, code = S(request).access.create_account(body.setup_key, body.username, body.password)

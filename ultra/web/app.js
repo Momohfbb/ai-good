@@ -58,6 +58,7 @@ async function showAuth() {
       <label>${T("username")}</label><input type="text" name="username" required minlength="3">
       <label>${T("password")}</label><input type="password" name="password" required minlength="8">
       <p></p><button class="btn primary">${T("create_account")}</button> <span class="small" id="msg"></span></form>`;
+    api("/auth/local-setup-key").then((r) => { $("#f [name=setup_key]").value = r.setup_key; }).catch(() => {});
     $("#f").onsubmit = async (ev) => {
       ev.preventDefault();
       const fd = Object.fromEntries(new FormData(ev.target));

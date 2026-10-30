@@ -9,7 +9,7 @@ window.I18N = {
     emergency_banner: "🛑 وضع الطوارئ مفعل: كل المهام متوقفة ولن تبدأ مهام جديدة.",
     online: "متصل", offline: "غير متصل",
     // auth
-    setup_title: "إعداد النظام لأول مرة", setup_hint: "أنشئ حساب المالك. مفتاح الإعداد ظاهر في نافذة التشغيل وفي الملف ADMIN_KEY.txt داخل مجلد البيانات.",
+    setup_title: "إعداد النظام لأول مرة", setup_hint: "أنشئ حساب المالك. على هذا الكمبيوتر يُملأ مفتاح الإعداد تلقائياً؛ ومن جهاز آخر تجده في الملف ADMIN_KEY.txt داخل مجلد البيانات.",
     setup_key: "مفتاح الإعداد", username: "اسم المستخدم", password: "كلمة السر (8 أحرف على الأقل)", create_account: "إنشاء الحساب",
     login_title: "تسجيل الدخول", login: "دخول", device_name: "اسم هذا الجهاز", twofa_code: "رمز التحقق الثنائي (6 أرقام)",
     bad_credentials: "اسم المستخدم أو كلمة السر غير صحيحة", locked: "محاولات كثيرة، انتظر 5 دقائق", bad_2fa: "رمز التحقق غير صحيح",
@@ -100,7 +100,7 @@ window.I18N = {
     emergency: "🛑 Emergency stop", emergency_release: "▶ Resume system", emergency_confirm: "Stop all tasks now?",
     emergency_banner: "🛑 Emergency stop is on: all tasks are stopped and no new task will start.",
     online: "Online", offline: "Offline",
-    setup_title: "First-time setup", setup_hint: "Create the owner account. The setup key is shown in the start window and in ADMIN_KEY.txt inside the data folder.",
+    setup_title: "First-time setup", setup_hint: "Create the owner account. On this computer the setup key is filled in for you; from another device, find it in ADMIN_KEY.txt inside the data folder.",
     setup_key: "Setup key", username: "Username", password: "Password (8+ characters)", create_account: "Create account",
     login_title: "Sign in", login: "Sign in", device_name: "Name of this device", twofa_code: "Two-factor code (6 digits)",
     bad_credentials: "Wrong username or password", locked: "Too many attempts, wait 5 minutes", bad_2fa: "Wrong two-factor code",

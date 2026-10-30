@@ -129,3 +129,15 @@ def test_password_reset_with_setup_key(tmp_path):
         assert c.get("/api/state", headers={"Authorization": f"Bearer {token}"}).status_code == 401   # all devices signed out
         assert c.post("/api/auth/login", json={"username": "momo", "password": "password123"}).status_code == 401
         assert c.post("/api/auth/login", json={"username": "momo", "password": "newpassword1"}).status_code == 200
+
+
+def test_setup_key_offered_only_locally_and_only_before_setup(tmp_path):
+    app = create_app(tmp_path / "d", start_background=False)
+    with TestClient(app, client=("127.0.0.1", 5000)) as local:
+        remote = TestClient(app, client=("192.168.1.50", 5000))
+        assert remote.get("/api/auth/local-setup-key").status_code == 404
+        key = local.get("/api/auth/local-setup-key").json()["setup_key"]
+        assert key == (tmp_path / "d" / "ADMIN_KEY.txt").read_text().strip()
+        assert local.post("/api/auth/setup", json={"setup_key": key, "username": "momo",
+                                                   "password": "password123"}).status_code == 200
+        assert local.get("/api/auth/local-setup-key").status_code == 404
