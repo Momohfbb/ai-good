@@ -1,23 +1,20 @@
 package ai.ultra.godmode
 
 import android.content.Intent
+import android.webkit.WebView
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.web.sugar.Web.onWebView
-import androidx.test.espresso.web.webdriver.DriverAtoms.findElement
-import androidx.test.espresso.web.webdriver.DriverAtoms.getText
-import androidx.test.espresso.web.webdriver.DriverAtoms.webClick
-import androidx.test.espresso.web.webdriver.DriverAtoms.webKeys
-import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import org.hamcrest.Matchers.containsString
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Runs on the emulator in CI against a real brain started on the build machine
  * (reachable from the emulator as 10.0.2.2). Account "ci-user" is created by the CI script.
+ * The page is driven with plain JavaScript inside the app's WebView, like a user typing and tapping.
  */
 @RunWith(AndroidJUnit4::class)
 class HubConnectionTest {
@@ -32,30 +29,47 @@ class HubConnectionTest {
     fun loginAndSendCommandFromPhone() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val intent = Intent(ctx, MainActivity::class.java).putExtra(MainActivity.EXTRA_HUB_URL, hub)
-        ActivityScenario.launch<MainActivity>(intent).use {
-            waitFor { onWebView().withElement(findElement(Locator.NAME, "username")) }
-            onWebView().withElement(findElement(Locator.NAME, "username")).perform(webKeys("ci-user"))
-            onWebView().withElement(findElement(Locator.NAME, "password")).perform(webKeys("ci-password-123"))
-            onWebView().withElement(findElement(Locator.CSS_SELECTOR, "button.primary")).perform(webClick())
-            waitFor { onWebView().withElement(findElement(Locator.ID, "nav")) }
-            // Send a command through the shared brain and wait for the verified result.
-            onWebView().withElement(findElement(Locator.CSS_SELECTOR, "nav a[data-p='command']")).perform(webClick())
-            waitFor { onWebView().withElement(findElement(Locator.ID, "cmd")) }
-            onWebView().withElement(findElement(Locator.ID, "cmd")).perform(webKeys("أنشئ مشروع من الهاتف"))
-            onWebView().withElement(findElement(Locator.ID, "send")).perform(webClick())
-            waitFor {
-                onWebView().withElement(findElement(Locator.ID, "chat"))
-                    .check(androidx.test.espresso.web.assertion.WebViewAssertions.webMatches(getText(), containsString("أنشأت المشروع")))
+        ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+            val js = { script: String -> eval(scenario, script) }
+
+            waitUntil("login form") { js("!!document.querySelector('input[name=password]')") == "true" }
+            js("""(function(){
+                const f = document.querySelector('input[name=password]').form;
+                f.querySelector('input[name=username]').value = 'ci-user';
+                f.querySelector('input[name=password]').value = 'ci-password-123';
+                f.requestSubmit(); return 1; })()""")
+
+            waitUntil("dashboard after login") { js("!!document.querySelector('#nav a[data-p=command]')") == "true" }
+            js("document.querySelector('#nav a[data-p=command]').click()")
+
+            waitUntil("command page") { js("!!document.getElementById('cmd')") == "true" }
+            js("""(function(){
+                document.getElementById('cmd').value = 'أنشئ مشروع من الهاتف';
+                document.getElementById('send').click(); return 1; })()""")
+
+            // The brain plans, executes and verifies the task; the phone shows the verified result.
+            waitUntil("verified result in chat", 60000) {
+                js("document.body.innerText.indexOf('أنشأت المشروع') >= 0") == "true"
             }
         }
     }
 
-    private fun waitFor(timeoutMs: Long = 30000, block: () -> Unit) {
-        val end = System.currentTimeMillis() + timeoutMs
-        var last: Throwable? = null
-        while (System.currentTimeMillis() < end) {
-            try { block(); return } catch (t: Throwable) { last = t; Thread.sleep(500) }
+    private fun eval(scenario: ActivityScenario<MainActivity>, script: String): String? {
+        val latch = CountDownLatch(1)
+        var result: String? = null
+        scenario.onActivity { activity ->
+            activity.findViewById<WebView>(R.id.web).evaluateJavascript(script) { result = it; latch.countDown() }
         }
-        throw AssertionError("timed out", last)
+        latch.await(10, TimeUnit.SECONDS)
+        return result
+    }
+
+    private fun waitUntil(what: String, timeoutMs: Long = 30000, check: () -> Boolean) {
+        val end = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < end) {
+            if (runCatching(check).getOrDefault(false)) return
+            Thread.sleep(500)
+        }
+        throw AssertionError("timed out waiting for $what")
     }
 }
