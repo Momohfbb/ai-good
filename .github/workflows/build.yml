@@ -1,0 +1,194 @@
+name: Build and test
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  brain-tests:
+    name: Brain unit tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest -q --junitxml=test-results/brain.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: test-results-brain, path: test-results }
+
+  windows:
+    name: Windows EXE — build, install, test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Version
+        id: v
+        shell: pwsh
+        run: |
+          $v = python -c "import ultra; print(ultra.__version__)"
+          "version=$v" >> $env:GITHUB_OUTPUT
+      - name: Install
+        run: pip install -r requirements.txt pytest pyinstaller pywebview
+      - name: Unit tests on Windows
+        run: python -m pytest -q --junitxml=test-results/windows.xml
+      - name: Build EXE
+        run: pyinstaller packaging/windows/UltraAI.spec --noconfirm --distpath dist --workpath build
+      - name: Smoke test the built EXE
+        shell: pwsh
+        run: |
+          $data = "$env:RUNNER_TEMP\ultra-exe"
+          $env:ULTRA_DATA_DIR = $data
+          # A stand-in Ollama on its real port, so the EXE's local-model path is exercised on Windows.
+          $ol = Start-Process python -ArgumentList "scripts/fake_ollama.py" -PassThru
+          $p = Start-Process dist\UltraAI\UltraAI.exe -ArgumentList "--no-browser","--port","8765" -PassThru
+          python scripts/smoke_test.py --url http://127.0.0.1:8765 --data $data --ollama | Tee-Object test-results/exe-smoke.txt
+          $code = $LASTEXITCODE
+          Stop-Process -Id $p.Id -Force
+          Stop-Process -Id $ol.Id -Force
+          if ($code -ne 0) { Get-Content "$data\logs\ultra.log" -ErrorAction SilentlyContinue; exit 1 }
+      - name: Build installer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=${{ steps.v.outputs.version }}" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Install silently, run the installed app, uninstall
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist\UltraAI-Setup-*.exe | Select-Object -First 1
+          # Reproduce a redirected Desktop that does not exist (OneDrive / moved folder): the desktop
+          # shortcut cannot be written there, and setup must still finish.
+          $usf = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+          $oldDesk = (Get-ItemProperty $usf).Desktop
+          Set-ItemProperty $usf Desktop "C:\missing-onedrive\Desktop"
+          $inst = Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/TASKS=desktopicon","/LOG=$env:RUNNER_TEMP\setup.log" -PassThru
+          $finished = $inst.WaitForExit(180000)
+          Set-ItemProperty $usf Desktop $oldDesk -Type ExpandString
+          if (-not $finished) { Stop-Process -Id $inst.Id -Force; Write-Error "setup stalled"; exit 1 }
+          if ($inst.ExitCode -ne 0) { Get-Content "$env:RUNNER_TEMP\setup.log" -Tail 30; Write-Error "setup failed with a redirected Desktop (exit $($inst.ExitCode))"; exit 1 }
+          "install with missing Desktop folder: OK" | Tee-Object test-results/installed-smoke.txt
+          $exe = "$env:LOCALAPPDATA\Programs\UltraAI\UltraAI.exe"
+          if (-not (Test-Path $exe)) { Write-Error "not installed"; exit 1 }
+          $data = "$env:RUNNER_TEMP\ultra-installed"
+          $env:ULTRA_DATA_DIR = $data
+          $p = Start-Process $exe -ArgumentList "--no-browser","--port","8766" -PassThru
+          python scripts/smoke_test.py --url http://127.0.0.1:8766 --data $data | Tee-Object -Append test-results/installed-smoke.txt
+          $code = $LASTEXITCODE
+          # Update while the app is running (as a user would): setup must stop it and finish.
+          $upd = Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru
+          if (-not $upd.WaitForExit(180000)) { Stop-Process -Id $upd.Id -Force; Write-Error "update stalled while the app was running"; exit 1 }
+          if ($upd.ExitCode -ne 0) { Write-Error "update failed with exit code $($upd.ExitCode)"; exit 1 }
+          if (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) { Write-Error "old app still running after update"; exit 1 }
+          "update over running app: OK" | Tee-Object -Append test-results/installed-smoke.txt
+          $p = Start-Process $exe -ArgumentList "--no-browser","--port","8766" -PassThru
+          Start-Sleep 6
+          try { $h = Invoke-RestMethod http://127.0.0.1:8766/api/health; if (-not $h.ok) { throw "bad health" } }
+          catch { Write-Error "updated app did not start: $_"; exit 1 }
+          "updated app starts, account kept: setup_needed=$($h.setup_needed)" | Tee-Object -Append test-results/installed-smoke.txt
+          if ($h.setup_needed) { Write-Error "account lost after update"; exit 1 }
+          Stop-Process -Id $p.Id -Force
+          Start-Sleep 2
+          Start-Process "$env:LOCALAPPDATA\Programs\UltraAI\unins000.exe" -ArgumentList "/VERYSILENT" -Wait
+          Start-Sleep 3
+          if (Test-Path $exe) { Write-Error "uninstall left the program behind"; exit 1 }
+          "uninstall: OK" | Tee-Object -Append test-results/installed-smoke.txt
+          exit $code
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UltraAI-Windows
+          path: dist/UltraAI-Setup-*.exe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: test-results-windows, path: test-results }
+
+  android:
+    name: Android APK — build, emulator test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.9" }
+      - name: Version
+        id: v
+        run: echo "version=$(python -c 'import ultra; print(ultra.__version__)')" >> $GITHUB_OUTPUT
+      - name: Release signing key (optional secret)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > $RUNNER_TEMP/release.jks
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
+          else
+            echo "::warning::No ANDROID_KEYSTORE_B64 secret: the APK is signed with a temporary debug key (fine for testing, updates need the same key)."
+          fi
+      - name: Build APK
+        env:
+          APP_VERSION: ${{ steps.v.outputs.version }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle -p android assembleRelease assembleDebug assembleDebugAndroidTest --stacktrace
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk out/UltraAI-${{ steps.v.outputs.version }}.apk
+      - name: Start the brain for the phone test
+        run: |
+          pip install -r requirements.txt
+          export ULTRA_DATA_DIR=$RUNNER_TEMP/ultra-android
+          nohup python run.py --no-browser --host 0.0.0.0 --port 8765 > $RUNNER_TEMP/brain.log 2>&1 &
+          python scripts/smoke_test.py --url http://127.0.0.1:8765 --data $ULTRA_DATA_DIR --setup-only
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and test the APK on an Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.hub_url=http://10.0.2.2:8765/
+      - uses: actions/upload-artifact@v4
+        with: { name: UltraAI-Android, path: out/*.apk }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-android
+          path: |
+            android/app/build/reports/androidTests
+            android/app/build/outputs/androidTest-results
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [brain-tests, windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/UltraAI-Windows/*.exe
+            artifacts/UltraAI-Android/*.apk
+          generate_release_notes: true
