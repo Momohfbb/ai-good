@@ -50,6 +50,9 @@ DEFAULT_SETTINGS: dict = {
     "web_search_enabled": False,     # Claude server-side web search (billed per search)
     "cross_check_enabled": False,    # ask a second model to review answers
     "monthly_budget_usd": 20.0,      # paid model calls are refused above this
+    # OpenAI prices in USD per million tokens (input, output), editable because they change.
+    # "*" is used for models not listed so OpenAI spend always counts toward the budget.
+    "openai_prices": {"gpt-5": [1.25, 10.0], "*": [1.25, 10.0]},
     "ollama_url": "http://127.0.0.1:11434",
     "openai_base_url": "https://api.openai.com/v1",
     # Telegram

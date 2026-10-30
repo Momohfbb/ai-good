@@ -47,6 +47,9 @@ def test_refusal_falls_through_to_next_provider(make_services, fake_llm):
     fake_llm.replies = ["from openai"]
     res = run(svc.router.complete("chat", "hi"))
     assert res.provider == "openai" and res.text == "from openai"
+    # OpenAI spend counts toward the monthly budget (11 in, 7 out at 1.25/10 per million).
+    assert res.cost_usd == round(11 / 1e6 * 1.25 + 7 / 1e6 * 10.0, 6)
+    assert svc.router.month_spend() > 0
 
 
 def test_fallback_on_error_then_ollama(make_services, fake_llm):

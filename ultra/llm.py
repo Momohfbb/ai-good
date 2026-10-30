@@ -210,8 +210,11 @@ class Router:
             raise LLMError(f"HTTP {r.status_code}: {r.text[:200]}")
         j = r.json()
         u = j.get("usage") or {}
+        tin, tout = u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+        prices = self.db.get_setting("openai_prices") or {}
+        pin, pout = prices.get(model) or prices.get("*") or (0, 0)
         return LLMResult(j["choices"][0]["message"].get("content") or "", "openai", model,
-                         u.get("prompt_tokens", 0), u.get("completion_tokens", 0), 0.0)
+                         tin, tout, round(tin / 1e6 * pin + tout / 1e6 * pout, 6))
 
     async def _ollama_call(self, model, prompt, system, images, history) -> LLMResult:
         url = self.db.get_setting("ollama_url")
