@@ -486,7 +486,11 @@ pages.telegram = async (el) => {
   $("#testTok").onclick = async () => { const r = await api("/telegram/test", { method: "POST" }); toast(r.ok ? "✅ @" + r.username : "❌ " + r.error, !r.ok); };
   $("#tgEn").onchange = async (e) => { await api("/settings", { method: "PUT", body: { telegram_enabled: e.target.checked } }); toast(T("saved")); };
   $("#tgNo").onchange = async (e) => { await api("/settings", { method: "PUT", body: { telegram_notify: e.target.checked } }); toast(T("saved")); };
-  $("#code").onclick = async () => { const r = await api("/telegram/code", { method: "POST" }); $("#codeOut").innerHTML = `<div class="code-big">${r.code}</div><div class="small muted" style="text-align:center">/pair ${r.code} — ${T("code_valid")}</div>`; };
+  $("#code").onclick = async () => { const r = await api("/telegram/code", { method: "POST" }); $("#codeOut").innerHTML = `<div class="code-big">${r.code}</div>
+    ${r.link ? `<p style="text-align:center"><a class="btn primary" href="${esc(r.link)}" target="_blank" rel="noopener">${T("tg_open_pair")}</a></p>` : ""}
+    <p style="text-align:center"><button class="btn small" id="copyPair">${T("copy")}: /pair ${r.code}</button></p>
+    <div class="small muted" style="text-align:center">${T("code_valid")}</div>`;
+    $("#copyPair").onclick = async () => { try { await navigator.clipboard.writeText("/pair " + r.code); toast(T("copied")); } catch (e) { toast("/pair " + r.code); } }; };
   el.querySelectorAll("[data-rm]").forEach((b) => b.onclick = async () => { if (confirm(T("confirm_delete"))) { await api("/telegram/users/" + b.dataset.rm, { method: "DELETE" }); render(); } });
 };
 

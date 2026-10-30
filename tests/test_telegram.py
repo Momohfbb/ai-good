@@ -94,6 +94,8 @@ def test_pairing_code_accepted_in_rtl_order_or_alone(make_services):
         assert svc.bot.is_paired(50)
         await svc.bot.handle_update(msg(svc.bot.new_pairing_code(), uid=51))             # just the number
         assert svc.bot.is_paired(51)
+        await svc.bot.handle_update(msg(f"/start {svc.bot.new_pairing_code()}", uid=53))  # dashboard t.me link
+        assert svc.bot.is_paired(53)
         await svc.bot.handle_update(msg("my number is 12345678 call me", uid=52))      # not a pairing attempt
         assert not svc.bot.is_paired(52) and "هذا بوت خاص" in tg.texts()[-1]
     run(go())

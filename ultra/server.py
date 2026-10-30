@@ -605,7 +605,14 @@ def create_app(data_dir: Path | None = None, telegram_api: str = "https://api.te
 
     @app.post("/api/telegram/code")
     async def telegram_code(request: Request, dev=A):
-        return {"code": S(request).bot.new_pairing_code(), "expires_in": 600}
+        bot = S(request).bot
+        code = bot.new_pairing_code()
+        name = bot.bot_username
+        if not name:
+            with contextlib.suppress(Exception):
+                name = (await bot.check_token()).get("username", "")
+        # One tap on this link opens the bot and sends "/start <code>", which pairs the account.
+        return {"code": code, "expires_in": 600, "link": f"https://t.me/{name}?start={code}" if name else ""}
 
     @app.post("/api/telegram/test")
     async def telegram_test(request: Request, dev=A):

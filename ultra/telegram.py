@@ -188,10 +188,11 @@ class TelegramBot:
         cmd = cmd.split("@")[0].lower()
 
         if not self.is_paired(user.get("id")):
-            # Accept the code however it arrives: "/pair 12345678", just "12345678", or "12345678/pair"
+            # Accept the code however it arrives: "/pair 12345678", "/start 12345678" (the dashboard's
+            # t.me link), just "12345678", or "12345678/pair"
             # (right-to-left typing on an Arabic phone keyboard puts the command after the number).
             codes = re.findall(r"\d{8}", text)
-            if len(codes) == 1 and ("pair" in text.lower() or text.isdigit()):
+            if len(codes) == 1 and ("pair" in text.lower() or cmd == "/start" or text.isdigit()):
                 res = self.try_pair(user, chat_id, codes[0])
                 reply = {"ok": "✅ تم ربط حسابك بنجاح. أرسل /help لرؤية الأوامر.",
                          "bad": "❌ الرمز غير صحيح أو منتهي الصلاحية.",
