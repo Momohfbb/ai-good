@@ -59,3 +59,13 @@ def test_suspicious_command_is_flagged(make_services):
     svc = make_services()
     plan = run(svc.brain.plan("احذف كل الملفات"))
     assert any(w.startswith("suspicious:") for w in plan.warnings)
+
+
+def test_garbled_input_uses_ui_language_and_tells_planner(make_services, fake_llm):
+    run = __import__("conftest").run
+    svc = make_services()
+    svc.vault.set("openai_api_key", "sk-test-1234567890abcdef")
+    fake_llm.replies = ['{"summary": "", "clarification": "ماذا تقصد؟", "steps": []}']
+    plan = run(svc.brain.plan("$hu"))
+    assert plan.language == "ar" and plan.clarification == "ماذا تقصد؟"
+    assert "The owner's language is Modern Standard Arabic" in fake_llm.calls[-1]["body"]["messages"][-1]["content"]

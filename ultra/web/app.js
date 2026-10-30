@@ -346,7 +346,7 @@ async function openTask(id) {
       <span class="shrink">${t.verified ? "✅ " + T("verified") : t.status === "completed" ? "" : ""}</span></div>
     <div class="progress" style="margin:10px 0"><i style="width:${t.progress}%"></i></div>
     <div class="row">${actionButtons(t)}</div>
-    ${t.approval_reason ? `<div class="card" style="margin-top:12px;border-color:var(--warn)"><b>${T("approval_needed")}</b><p>${esc(t.approval_reason)}</p></div>` : ""}
+    ${t.approval_reason ? `<div class="card" style="margin-top:12px;border-color:var(--warn)"><b>${T(t.plan && t.plan.clarification ? "clarify_needed" : "approval_needed")}</b><p>${esc(t.approval_reason)}</p></div>` : ""}
     <label>${T("description")}</label><div class="result">${esc(t.description)}</div>
     <label>${T("steps")} ${plan.planner ? `<span class="small muted">(${T("planner")}: ${esc(plan.planner)})</span>` : ""}</label>
     <ul class="steps">${(t.steps || []).map((s, i) => `<li><span>${icon[s.status] || "•"}</span><span class="grow"><b>${i + 1}. ${esc(s.description)}</b>

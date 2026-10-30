@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 
 from .agents import Agent, action_catalog
-from .language import detect
+from .language import LANG_NAMES, detect
 from .llm import LLMError, Router
 from .security import suspicious_command
 
@@ -138,6 +138,7 @@ Rules:
 - If the request is ambiguous, or asks for something dangerous or that no action can do, return no steps and put a short question or explanation in "clarification" (in the owner's language).
 - Never invent actions. Controlling the PC screen, the phone, games, browsers and smart-home devices is not available yet.
 - "description" is a short label in the owner's language.
+- The owner's language is {language}: write "summary", "clarification" and descriptions in it.
 {attachments}
 Owner's request:
 <request>
@@ -175,6 +176,9 @@ class Brain:
 
     async def plan(self, text: str, attachments: list[str] | None = None) -> Plan:
         lang = detect(text)
+        if len(re.findall(r"[^\W\d_]", text)) < 4:
+            # Too short or garbled to tell (e.g. "$hu" typed on the wrong keyboard): use the owner's UI language.
+            lang = "ar" if (self.router.db.get_setting("ui_language") or "ar") == "ar" else "en"
         warnings = []
         sus = suspicious_command(text)
         if sus:
@@ -188,7 +192,8 @@ class Brain:
             return Plan(lang, text[:80], [], clarification="no_model", warnings=warnings, planner="none")
 
         att = ("\nFiles attached to this request (workspace paths): " + ", ".join(attachments) + "\n") if attachments else ""
-        prompt = PLANNER_PROMPT.format(catalog=action_catalog(self.agents), request=text, attachments=att)
+        prompt = PLANNER_PROMPT.format(catalog=action_catalog(self.agents), request=text, attachments=att,
+                                       language=LANG_NAMES.get(lang, "Arabic"))
         try:
             res = await self.router.complete("plan", prompt, max_tokens=4000)
             data = _extract_json(res.text)
