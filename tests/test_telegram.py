@@ -87,6 +87,18 @@ def test_pairing_flow_and_bruteforce_block(make_services):
     run(go())
 
 
+def test_pairing_code_accepted_in_rtl_order_or_alone(make_services):
+    async def go():
+        svc, tg = setup(make_services)
+        await svc.bot.handle_update(msg(f"{svc.bot.new_pairing_code()}/pair", uid=50))   # typed right-to-left
+        assert svc.bot.is_paired(50)
+        await svc.bot.handle_update(msg(svc.bot.new_pairing_code(), uid=51))             # just the number
+        assert svc.bot.is_paired(51)
+        await svc.bot.handle_update(msg("my number is 12345678 call me", uid=52))      # not a pairing attempt
+        assert not svc.bot.is_paired(52) and "هذا بوت خاص" in tg.texts()[-1]
+    run(go())
+
+
 def test_command_creates_task_and_reports_result(make_services):
     async def go():
         svc, tg = setup(make_services)

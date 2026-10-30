@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import secrets
+import re
 import time
 
 import httpx
@@ -187,8 +188,11 @@ class TelegramBot:
         cmd = cmd.split("@")[0].lower()
 
         if not self.is_paired(user.get("id")):
-            if cmd == "/pair" and arg:
-                res = self.try_pair(user, chat_id, arg)
+            # Accept the code however it arrives: "/pair 12345678", just "12345678", or "12345678/pair"
+            # (right-to-left typing on an Arabic phone keyboard puts the command after the number).
+            codes = re.findall(r"\d{8}", text)
+            if len(codes) == 1 and ("pair" in text.lower() or text.isdigit()):
+                res = self.try_pair(user, chat_id, codes[0])
                 reply = {"ok": "✅ تم ربط حسابك بنجاح. أرسل /help لرؤية الأوامر.",
                          "bad": "❌ الرمز غير صحيح أو منتهي الصلاحية.",
                          "blocked": "⛔ محاولات كثيرة. حاول بعد ساعة."}[res]
