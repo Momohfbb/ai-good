@@ -16,9 +16,9 @@
 | واجهة API `test_api.py` | 7 | رفض الطلبات بدون دخول، دخول تطبيقات الهاتف بالرمز، الدورة الكاملة للوحة التحكم، الموافقة والطوارئ، النسخ الاحتياطي والاستعادة والتقارير والمزامنة، التحقق الثنائي، استرجاع كلمة السر |
 | الإضافات `test_plugins.py` | 3 | متوقفة افتراضياً ثم تعمل بعد التفعيل، تتوقف عند تغيير ملفها، إضافة معطوبة لا توقف النظام |
 
-## 2. اختبار التشغيل الكامل: 15 من 15 ناجحة
+## 2. اختبار التشغيل الكامل: 18 من 18 ناجحة
 
-`scripts/smoke_test.py` يشغّل البرنامج الحقيقي ويتعامل معه كمستخدم عبر الشبكة:
+`scripts/smoke_test.py` يشغّل البرنامج الحقيقي ويتعامل معه كمستخدم عبر الشبكة. الفحوص الثلاثة الخاصة بـ Ollama تعمل مع خادم يحاكي Ollama على منفذه الحقيقي (`scripts/fake_ollama.py`)، وتُشغَّل على ملف EXE في Windows:
 
 ```
 PASS brain answers /api/health
@@ -35,8 +35,11 @@ PASS approved task completes
 PASS emergency stop
 PASS new tasks refused during emergency
 PASS state after release
+PASS Ollama found on this PC
+PASS Ollama model answers
+PASS free-form request answered by the local model
 PASS backup created
-{"passed": 15, "failed": []}
+{"passed": 18, "failed": []}
 ```
 
 ## 3. لوحة التحكم في متصفح حقيقي

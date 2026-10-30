@@ -26,6 +26,7 @@ def main() -> int:
     ap.add_argument("--password", default="ci-password-123")
     ap.add_argument("--wait", type=int, default=90)
     ap.add_argument("--setup-only", action="store_true")
+    ap.add_argument("--ollama", action="store_true", help="also check the local model path (needs scripts/fake_ollama.py)")
     a = ap.parse_args()
     base = a.url.rstrip("/")
     jar = http.cookiejar.CookieJar()
@@ -106,6 +107,15 @@ def main() -> int:
     call("POST", "/api/emergency/release")
     st, r = call("GET", "/api/state")
     check("state after release", st == 200 and not r["emergency"])
+    if a.ollama:
+        st, r = call("GET", "/api/models/ollama")
+        check("Ollama found on this PC", st == 200 and r["available"] and "gemma4:12b" in r["models"], str(r))
+        st, r = call("POST", "/api/models/test", {"text": "chat"})
+        check("Ollama model answers", st == 200 and r.get("ok") and r.get("provider") == "ollama", str(r))
+        t = run_task("اكتب لي 3 أفكار لمشروع صغير في الجزائر", "completed")
+        answer = " ".join(s.get("result") or "" for s in (t or {}).get("steps", []))
+        check("free-form request answered by the local model", t and t["status"] == "completed" and "مخبزة" in answer,
+              t and (t.get("error") or t["status"]))
     st, r = call("POST", "/api/backups")
     check("backup created", st == 200 and r.get("name", "").endswith(".zip"))
 

@@ -48,10 +48,13 @@ jobs:
         run: |
           $data = "$env:RUNNER_TEMP\ultra-exe"
           $env:ULTRA_DATA_DIR = $data
+          # A stand-in Ollama on its real port, so the EXE's local-model path is exercised on Windows.
+          $ol = Start-Process python -ArgumentList "scripts/fake_ollama.py" -PassThru
           $p = Start-Process dist\UltraAI\UltraAI.exe -ArgumentList "--no-browser","--port","8765" -PassThru
-          python scripts/smoke_test.py --url http://127.0.0.1:8765 --data $data | Tee-Object test-results/exe-smoke.txt
+          python scripts/smoke_test.py --url http://127.0.0.1:8765 --data $data --ollama | Tee-Object test-results/exe-smoke.txt
           $code = $LASTEXITCODE
           Stop-Process -Id $p.Id -Force
+          Stop-Process -Id $ol.Id -Force
           if ($code -ne 0) { Get-Content "$data\logs\ultra.log" -ErrorAction SilentlyContinue; exit 1 }
       - name: Build installer
         shell: pwsh
