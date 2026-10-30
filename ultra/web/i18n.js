@@ -36,7 +36,7 @@ window.I18N = {
     steps: "الخطوات", result: "النتيجة", errors: "الأخطاء", files_out: "الملفات الناتجة", exec_log: "سجل التنفيذ",
     approve: "✅ موافقة", deny: "❌ رفض", pause: "⏸ إيقاف مؤقت", resume: "▶ استئناف", stop: "⏹ إيقاف", retry: "🔁 إعادة المحاولة",
     answer: "إرسال التوضيح", answer_ph: "اكتب التوضيح المطلوب…", verified: "تم التحقق من النتيجة", not_verified: "لم يتم التحقق",
-    planner: "المخطط", warnings: "تنبيهات", approval_needed: "مطلوب موافقتك", clarify_needed: "لم أفهم الطلب جيداً، أحتاج توضيحاً منك",
+    planner: "المخطط", warnings: "تنبيهات", approval_needed: "مطلوب موافقتك", clarify_needed: "لم أفهم الطلب جيداً، أحتاج توضيحاً منك", kb_hint: "يبدو أن لوحة المفاتيح كانت على الإنجليزية. هل تقصد:", kb_yes: "نعم، أرسلها بالعربية", kb_no: "لا، أرسلها كما هي",
     // agents
     actions: "الإجراءات", needs_approval_tag: "يحتاج موافقة",
     // projects
@@ -123,7 +123,7 @@ window.I18N = {
     steps: "Steps", result: "Result", errors: "Errors", files_out: "Output files", exec_log: "Execution log",
     approve: "✅ Approve", deny: "❌ Deny", pause: "⏸ Pause", resume: "▶ Resume", stop: "⏹ Stop", retry: "🔁 Retry",
     answer: "Send clarification", answer_ph: "Type the clarification…", verified: "Result verified", not_verified: "Not verified",
-    planner: "Planner", warnings: "Warnings", approval_needed: "Your approval is needed", clarify_needed: "I need a clarification from you",
+    planner: "Planner", warnings: "Warnings", approval_needed: "Your approval is needed", clarify_needed: "I need a clarification from you", kb_hint: "Looks like the keyboard was on English. Did you mean:", kb_yes: "Yes, send it in Arabic", kb_no: "No, send as typed",
     actions: "Actions", needs_approval_tag: "needs approval",
     new_project: "New project", project_name: "Project name", deadline: "Deadline", add: "Add", add_item: "New item",
     priority: "Priority", due: "Due", p_high: "High", p_medium: "Medium", p_low: "Low", delete: "Delete",

@@ -209,6 +209,7 @@ pages.command = async (el) => {
       <label class="btn shrink">${T("attach")}<input type="file" id="file" class="hidden"></label>
       <button class="btn primary shrink" id="send">${T("send")}</button>
     </div>
+    <div id="kbHint" class="card hidden" style="margin:8px 0;border-color:var(--warn)"></div>
     <div id="fileName" class="small muted"></div>
     <p class="small muted">${T("offline_cmds")}<br>${T("mic_note")}</p></div>
   <div class="chat" id="chat"></div>`;
@@ -216,15 +217,40 @@ pages.command = async (el) => {
   $("#vlang").onchange = (e) => store.set("vlang", e.target.value);
   $("#file").onchange = (e) => $("#fileName").textContent = e.target.files[0] ? "📎 " + e.target.files[0].name : "";
   $("#cmd").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(); };
-  $("#send").onclick = send;
+  $("#send").onclick = () => send();
   $("#mic").onclick = toggleMic;
   chatSeen = {};
   refreshChat();
 };
-async function send() {
+// Arabic (101) keyboard layout: what a key types in Arabic, for text typed with the wrong layout
+// (e.g. "ig dl;k" -> "هل يمكن").
+const AR_KEYS = { q: "ض", w: "ص", e: "ث", r: "ق", t: "ف", y: "غ", u: "ع", i: "ه", o: "خ", p: "ح", "[": "ج", "]": "د",
+  a: "ش", s: "س", d: "ي", f: "ب", g: "ل", h: "ا", j: "ت", k: "ن", l: "م", ";": "ك", "'": "ط", z: "ئ", x: "ء", c: "ؤ",
+  v: "ر", b: "لا", n: "ى", m: "ة", ",": "و", ".": "ز", "/": "ظ", "`": "ذ" };
+const LATIN_WORDS = new Set(("a an the to of in on for and or is are be it this that my me you i we what how why when where who " +
+  "please can could make create write open show list find add remove delete save send read note notes file files project " +
+  "task tasks hello hi thanks yes no ok test help de la le les un une des et pour est je tu il mon ma mes avec dans sur " +
+  "bonjour merci oui non salam wesh rani kifach nchouf").split(" "));
+function wrongLayoutArabic(text) {
+  if (/[\u0600-\u06FF]/.test(text) || !/[a-z]/i.test(text) || /https?:|www\.|@/.test(text)) return "";
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.some((w) => LATIN_WORDS.has(w.replace(/[^a-zé']/g, "")))) return "";
+  return [...text.toLowerCase()].map((c) => AR_KEYS[c] || c).join("");
+}
+async function send(force) {
   const text = $("#cmd").value.trim();
   const f = $("#file").files[0];
   if (!text && !f) return;
+  const fixed = force ? "" : wrongLayoutArabic(text);
+  if (fixed) {
+    const hint = $("#kbHint");
+    hint.innerHTML = `${T("kb_hint")} <b>${esc(fixed)}</b><br>
+      <button class="btn small primary" id="kbYes">${T("kb_yes")}</button> <button class="btn small" id="kbNo">${T("kb_no")}</button>`;
+    hint.classList.remove("hidden");
+    $("#kbYes").onclick = () => { $("#cmd").value = fixed; hint.classList.add("hidden"); send(true); };
+    $("#kbNo").onclick = () => { hint.classList.add("hidden"); send(true); };
+    return;
+  }
   stopMic();
   try {
     if (f) {
