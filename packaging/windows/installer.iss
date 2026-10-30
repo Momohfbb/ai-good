@@ -40,13 +40,15 @@ Source: "..\..\dist\UltraAI\*"; DestDir: "{app}"; Flags: ignoreversion recursesu
 Name: "{group}\ULTRA AI GOD MODE"; Filename: "{app}\UltraAI.exe"
 Name: "{group}\ULTRA AI (المتصفح / browser)"; Filename: "{app}\UltraAI.exe"; Parameters: "--browser"
 Name: "{group}\{cm:UninstallProgram,ULTRA AI}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\ULTRA AI GOD MODE"; Filename: "{app}\UltraAI.exe"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "UltraAI"; ValueData: """{app}\UltraAI.exe"" --no-browser"; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
 Filename: "{app}\UltraAI.exe"; Description: "{cm:LaunchProgram,ULTRA AI GOD MODE}"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+Type: files; Name: "{autodesktop}\ULTRA AI GOD MODE.lnk"
 
 [Code]
 procedure StopRunningApp();
@@ -67,4 +69,20 @@ function InitializeUninstall(): Boolean;
 begin
   StopRunningApp();
   Result := True;
+end;
+
+// The desktop shortcut is made here rather than in [Icons]: when the Desktop folder is redirected
+// (OneDrive, a moved or missing folder) Windows refuses it with "IPersistFile::Save failed; code
+// 0x80070003" and setup stops. A missing desktop shortcut must never block the install.
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if (CurStep = ssPostInstall) and WizardIsTaskSelected('desktopicon') then
+  begin
+    try
+      CreateShellLink(ExpandConstant('{autodesktop}\ULTRA AI GOD MODE.lnk'), 'ULTRA AI GOD MODE',
+        ExpandConstant('{app}\UltraAI.exe'), '', ExpandConstant('{app}'), '', 0, SW_SHOWNORMAL);
+    except
+      Log('Desktop shortcut skipped: ' + GetExceptionMessage);
+    end;
+  end;
 end;

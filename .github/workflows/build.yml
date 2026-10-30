@@ -68,13 +68,23 @@ jobs:
         shell: pwsh
         run: |
           $setup = Get-ChildItem dist\UltraAI-Setup-*.exe | Select-Object -First 1
-          Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          # Reproduce a redirected Desktop that does not exist (OneDrive / moved folder): the desktop
+          # shortcut cannot be written there, and setup must still finish.
+          $usf = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+          $oldDesk = (Get-ItemProperty $usf).Desktop
+          Set-ItemProperty $usf Desktop "C:\missing-onedrive\Desktop"
+          $inst = Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/TASKS=desktopicon","/LOG=$env:RUNNER_TEMP\setup.log" -PassThru
+          $finished = $inst.WaitForExit(180000)
+          Set-ItemProperty $usf Desktop $oldDesk -Type ExpandString
+          if (-not $finished) { Stop-Process -Id $inst.Id -Force; Write-Error "setup stalled"; exit 1 }
+          if ($inst.ExitCode -ne 0) { Get-Content "$env:RUNNER_TEMP\setup.log" -Tail 30; Write-Error "setup failed with a redirected Desktop (exit $($inst.ExitCode))"; exit 1 }
+          "install with missing Desktop folder: OK" | Tee-Object test-results/installed-smoke.txt
           $exe = "$env:LOCALAPPDATA\Programs\UltraAI\UltraAI.exe"
           if (-not (Test-Path $exe)) { Write-Error "not installed"; exit 1 }
           $data = "$env:RUNNER_TEMP\ultra-installed"
           $env:ULTRA_DATA_DIR = $data
           $p = Start-Process $exe -ArgumentList "--no-browser","--port","8766" -PassThru
-          python scripts/smoke_test.py --url http://127.0.0.1:8766 --data $data | Tee-Object test-results/installed-smoke.txt
+          python scripts/smoke_test.py --url http://127.0.0.1:8766 --data $data | Tee-Object -Append test-results/installed-smoke.txt
           $code = $LASTEXITCODE
           # Update while the app is running (as a user would): setup must stop it and finish.
           $upd = Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru
