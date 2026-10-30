@@ -671,6 +671,14 @@ pages.settings = async (el) => {
     <div class="card"><h3>${T("backups")}</h3>
       <label>${T("auto_backup")}</label><div class="row"><input type="number" id="abh" min="0" value="${st.auto_backup_hours}"><button class="btn primary shrink" id="bnow">${T("backup_now")}</button></div>
       <div class="list" style="margin-top:10px">${backups.map((b) => `<div class="item"><span class="grow small">${esc(b.name)} <span class="muted">${(b.size / 1048576).toFixed(2)} MB</span></span><button class="btn small shrink" data-restore="${esc(b.name)}">${T("restore")}</button></div>`).join("") || `<div class="empty">—</div>`}</div></div></div>
+  <div class="card" style="margin-bottom:14px"><h3>🖥️ ${T("pc_title")}</h3><p class="small muted">${T("pc_hint")}</p>
+    <p><label class="switch"><input type="checkbox" id="pcOn" ${st.pc_control_enabled ? "checked" : ""}> ${T("pc_enable")}</label></p>
+    <label>${T("pc_apps")}</label>
+    <div class="list" id="pcApps">${(st.pc_allowed_apps || []).map((a, i) => `<div class="item"><span class="grow"><b>${esc(a.name)}</b> <span class="small muted">${esc(a.label || "")}</span>
+      <div class="small muted" style="direction:ltr;text-align:start">${esc(a.command)}</div></span><button class="btn small shrink" data-pcdel="${i}">${T("pc_remove")}</button></div>`).join("") || `<div class="empty">—</div>`}</div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap"><input type="text" id="pcName" placeholder="${T("pc_name")}" style="direction:ltr">
+      <input type="text" id="pcCmd" placeholder="C:\\Program Files\\...\\app.exe" style="direction:ltr;flex:2"><button class="btn primary shrink" id="pcAdd">${T("pc_add")}</button></div>
+    <p class="small muted">${T("pc_add_hint")}</p></div>
   <div class="card"><h3>${T("plugins")}</h3><p class="small muted">${T("plugins_hint")}</p><p class="small" style="color:var(--warn)">⚠ ${T("plugin_warn")}</p>
     <div class="list">${plugins.map((p) => `<div class="item"><span class="grow"><b>${esc(p.name)}</b> ${p.version ? `<span class="small muted">v${esc(p.version)}</span>` : ""}
       ${p.loaded ? `<span class="badge b-ok">${T("ag_ready")}</span>` : ""}${p.error ? `<span class="badge b-bad">${esc(p.error)}</span>` : ""}
@@ -682,6 +690,17 @@ pages.settings = async (el) => {
     await api("/settings", { method: "PUT", body: { max_parallel_tasks: Number($("#par").value), step_retries: Number($("#ret").value), low_resource_mode: $("#low").checked,
       workspace_dir: $("#wsd").value, heartbeat_url: $("#hb").value, auto_backup_hours: Number($("#abh").value) } });
     toast(T("saved"));
+  };
+  const savePc = async (apps) => {
+    try { await api("/settings", { method: "PUT", body: { pc_control_enabled: $("#pcOn").checked, pc_allowed_apps: apps } }); toast(T("saved")); render(); } catch (e) { fail(e); }
+  };
+  $("#pcOn").onchange = () => savePc(st.pc_allowed_apps || []);
+  el.querySelectorAll("[data-pcdel]").forEach((b) => b.onclick = () => savePc((st.pc_allowed_apps || []).filter((_, i) => i !== Number(b.dataset.pcdel))));
+  $("#pcAdd").onclick = () => {
+    const name = $("#pcName").value.trim().toLowerCase(), cmd = $("#pcCmd").value.trim().replace(/^"|"$/g, "");
+    if (!/^[a-z0-9 _-]{2,30}$/.test(name) || !/\.exe$/i.test(cmd)) { toast(T("pc_bad_app")); return; }
+    const exe = cmd.split(/[\\/]/).pop();
+    savePc([...(st.pc_allowed_apps || []), { name, label: name, command: cmd, process: exe }]);
   };
   $("#bnow").onclick = async () => { await api("/backups", { method: "POST" }); toast(T("saved")); render(); };
   el.querySelectorAll("[data-restore]").forEach((b) => b.onclick = async () => { if (confirm(T("restore_confirm"))) { await api(`/backups/${encodeURIComponent(b.dataset.restore)}/restore`, { method: "POST" }); toast(T("restart_needed")); } });

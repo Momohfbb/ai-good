@@ -59,6 +59,15 @@ DEFAULT_SETTINGS: dict = {
     # Telegram
     "telegram_enabled": False,
     "telegram_notify": True,
+    # PC agent (Windows): every action still needs the owner's approval.
+    # Only these programs can be opened or closed; "process" is the name that proves it is running.
+    "pc_control_enabled": True,
+    "pc_allowed_apps": [
+        {"name": "notepad", "label": "المفكرة / Notepad", "command": "notepad.exe", "process": "notepad.exe"},
+        {"name": "calculator", "label": "الآلة الحاسبة / Calculator", "command": "calc.exe", "process": "CalculatorApp.exe"},
+        {"name": "paint", "label": "الرسام / Paint", "command": "mspaint.exe", "process": "mspaint.exe"},
+        {"name": "explorer", "label": "مستكشف الملفات / File Explorer", "command": "explorer.exe", "process": "explorer.exe"},
+    ],
     # Backups
     "auto_backup_hours": 24,
     "backups_keep": 10,

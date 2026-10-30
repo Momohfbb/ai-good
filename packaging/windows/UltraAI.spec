@@ -8,7 +8,7 @@ a = Analysis(
     [str(root / "run.py")],
     pathex=[str(root)],
     datas=[(str(root / "ultra" / "web"), "ultra/web"), (str(root / "plugins"), "plugins")],
-    hiddenimports=collect_submodules("uvicorn") + ["ultra.server", "webview", "clr"],
+    hiddenimports=collect_submodules("uvicorn") + ["ultra.server", "webview", "clr", "pyautogui", "pyscreeze", "pyperclip", "pymsgbox", "pytweening", "mouseinfo", "pygetwindow", "pyrect", "PIL.ImageGrab"],
     excludes=["tkinter", "matplotlib", "numpy"],
 )
 pyz = PYZ(a.pure)
