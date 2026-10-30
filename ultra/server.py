@@ -545,8 +545,11 @@ def create_app(data_dir: Path | None = None, telegram_api: str = "https://api.te
     async def ollama_state(request: Request, dev=A):
         svc = S(request)
         ok = await svc.router.probe_ollama()
+        import psutil
+        ram = psutil.virtual_memory().total
         return {"available": ok, "models": svc.db.get_setting("ollama_models", []),
-                "pulls": list(svc.router.pulls.values())}
+                "pulls": list(svc.router.pulls.values()), "ram_gb": round(ram / 1024**3),
+                "recommended": svc.router.recommended_ollama(ram)}
 
     @app.post("/api/models/ollama/pull")
     async def ollama_pull(body: TextIn, request: Request, dev=A):

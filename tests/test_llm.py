@@ -119,3 +119,9 @@ def test_ollama_uses_installed_model_when_configured_one_is_missing(make_service
     svc.db.set_setting("ollama_models", ["qwen2.5vl:latest", "qwen3:4b"])
     assert svc.router.candidates("chat") == [("ollama", "qwen3:4b")]
     assert svc.router.candidates("vision") == [("ollama", "qwen2.5vl:latest")]
+
+
+def test_recommended_ollama_model_by_memory():
+    from ultra.llm import Router
+    assert Router.recommended_ollama(24 * 1024**3) == "qwen3:8b"
+    assert Router.recommended_ollama(8 * 1024**3) == "qwen3:4b"

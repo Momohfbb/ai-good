@@ -84,6 +84,14 @@ class Router:
         self.db.set_setting("ollama_models", models)
         return ok
 
+    @staticmethod
+    def recommended_ollama(ram_bytes: int | None = None) -> str:
+        """Best general local model for this PC's memory."""
+        if ram_bytes is None:
+            import psutil
+            ram_bytes = psutil.virtual_memory().total
+        return "qwen3:8b" if ram_bytes >= 12 * 1024**3 else "qwen3:4b"
+
     OLLAMA_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,100}$")
 
     async def pull_ollama(self, model: str) -> dict:

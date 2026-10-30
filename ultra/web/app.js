@@ -540,15 +540,19 @@ async function ollamaPanel() {
   }).join("");
   box.innerHTML = `<p class="small">${o.available ? `<span class="dot ok"></span> ${T("ol_on")}` : `<span class="dot bad"></span> ${T("ol_off")} <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>`}</p>
     <p class="small">${T("ollama_found")}: ${o.models.map((m) => `<span class="badge">${esc(m)}</span>`).join(" ") || "—"}</p>
+    ${o.available ? `<p><button class="btn primary" id="olBest">${T("ol_best")} ${esc(o.recommended)}</button>
+      <span class="small muted">${T("ol_ram")}: ${o.ram_gb} GB</span></p>` : `<p><a class="btn primary" href="https://ollama.com/download/OllamaSetup.exe" target="_blank" rel="noopener">${T("ol_get")}</a></p>`}
     <label>${T("ol_pull")}</label>
-    <div class="row"><input type="text" id="olName" list="olList" placeholder="qwen3:8b" style="direction:ltr" autocomplete="off">
+    <div class="row"><input type="text" id="olName" list="olList" placeholder="${esc(o.recommended)}" style="direction:ltr" autocomplete="off">
       <datalist id="olList">${OLLAMA_SUGGESTED.map((m) => `<option value="${m}">`).join("")}</datalist>
       <button class="btn primary shrink" id="olPull" ${o.available ? "" : "disabled"}>${T("ol_pull_btn")}</button></div>
     <p class="small muted">${T("ol_hint")}</p>${pulls}`;
-  $("#olPull").onclick = async () => {
-    const name = $("#olName").value.trim() || "qwen3:8b";
+  const pull = async (name) => {
     try { await api("/models/ollama/pull", { method: "POST", body: { text: name } }); ollamaPanel(); } catch (e) { fail(e); }
   };
+  $("#olPull").onclick = () => pull($("#olName").value.trim() || o.recommended);
+  const best = $("#olBest");
+  if (best) best.onclick = () => pull(o.recommended);
   if (o.pulls.some((p) => !p.done)) setTimeout(ollamaPanel, 1500);
 }
 pages.models = async (el) => {
