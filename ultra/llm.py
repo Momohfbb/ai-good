@@ -55,10 +55,15 @@ class Image:
 
 
 class Router:
-    def __init__(self, db: Database, vault: Vault, http: httpx.AsyncClient | None = None):
+    def __init__(self, db: Database, vault: Vault, http: httpx.AsyncClient | None = None,
+                 local_http: httpx.AsyncClient | None = None):
         self.db = db
         self.vault = vault
         self.http = http or httpx.AsyncClient(timeout=httpx.Timeout(180, connect=10))
+        # Ollama is on this PC: never send it through a system/VPN proxy (Windows proxy settings
+        # are picked up by default and break connections to 127.0.0.1).
+        self.local_http = local_http or (self.http if http else
+                                         httpx.AsyncClient(timeout=httpx.Timeout(180, connect=10), trust_env=False))
         self._anthropic = None
         self._anthropic_key = None
         self.anthropic_http = None   # optional custom HTTP client (tests, proxies)
@@ -79,7 +84,7 @@ class Router:
         ok, models, error = False, [], ""
         for u in tries:
             try:
-                r = await self.http.get(f"{u}/api/tags", timeout=3)
+                r = await self.local_http.get(f"{u}/api/tags", timeout=3)
                 if r.status_code != 200:
                     error = f"{u}: HTTP {r.status_code}"
                     continue
@@ -110,7 +115,7 @@ class Router:
                                  "done": False, "ok": False, "error": ""}
         url = self.db.get_setting("ollama_url")
         try:
-            async with self.http.stream("POST", f"{url}/api/pull", json={"model": model, "name": model, "stream": True},
+            async with self.local_http.stream("POST", f"{url}/api/pull", json={"model": model, "name": model, "stream": True},
                                         timeout=httpx.Timeout(None, connect=10)) as r:
                 if r.status_code >= 400:
                     raise LLMError(f"HTTP {r.status_code}: {(await r.aread())[:200].decode(errors='replace')}")
@@ -296,7 +301,7 @@ class Router:
         if images:
             msg["images"] = [base64.b64encode(i.data).decode() for i in images]
         msgs = ([{"role": "system", "content": system}] if system else []) + list(history or []) + [msg]
-        r = await self.http.post(f"{url}/api/chat", json={"model": model, "messages": msgs, "stream": False,
+        r = await self.local_http.post(f"{url}/api/chat", json={"model": model, "messages": msgs, "stream": False,
                                        "options": {"num_ctx": int(self.db.get_setting("ollama_num_ctx", 16384) or 16384)}},
                                  timeout=600)
         if r.status_code >= 400:

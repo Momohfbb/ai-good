@@ -52,7 +52,8 @@ class Services:
         self.vault = Vault(self.db, data_dir / "secret.key")
         self.access = Access(self.db, data_dir / "ADMIN_KEY.txt")
         self.http = http or httpx.AsyncClient(timeout=httpx.Timeout(180, connect=10))
-        self.router = Router(self.db, self.vault, self.http)
+        local_http = http or httpx.AsyncClient(timeout=httpx.Timeout(180, connect=10), trust_env=False)
+        self.router = Router(self.db, self.vault, self.http, local_http)
         self.agents = build_agents()
         self.plugin_dirs = [config.BASE_DIR / "plugins", data_dir / "plugins"]
         (data_dir / "plugins").mkdir(exist_ok=True)
