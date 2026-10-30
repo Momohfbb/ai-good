@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ULTRA AI</string>
+    <string name="setup_title">الاتصال بالعقل المركزي</string>
+    <string name="setup_hint">أدخل عنوان الكمبيوتر الذي يعمل عليه ULTRA AI، مثل http://192.168.1.10:8765 — يظهر في صفحة «الكمبيوتر والهاتف» في لوحة التحكم.</string>
+    <string name="hub_url">عنوان العقل المركزي</string>
+    <string name="connect">اتصال</string>
+    <string name="checking">جارٍ الفحص…</string>
+    <string name="unreachable">تعذر الوصول إلى العقل المركزي. تأكد أن الكمبيوتر يعمل وأن «عنوان الاستماع» هو 0.0.0.0 وأن الهاتف على نفس الشبكة.</string>
+    <string name="change_hub">تغيير العقل المركزي</string>
+    <string name="reload">إعادة التحميل</string>
+    <string name="channel_name">تنبيهات المهام</string>
+    <string name="notif_approval">مهمة تحتاج موافقتك</string>
+    <string name="notif_failed">فشلت مهمة</string>
+</resources>

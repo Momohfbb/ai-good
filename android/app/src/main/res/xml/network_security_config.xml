@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The brain usually runs on a PC in the same home network (http://192.168.x.x:8765).
+     Plain HTTP is allowed so that works; for access from outside the home use HTTPS
+     (for example through Tailscale or a reverse proxy). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors><certificates src="system" /></trust-anchors>
+    </base-config>
+</network-security-config>
