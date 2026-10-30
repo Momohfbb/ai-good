@@ -524,6 +524,33 @@ pages.security = async (el, quiet) => {
 };
 
 // ---- models & costs
+const OLLAMA_SUGGESTED = ["qwen3:8b", "qwen3:4b", "qwen2.5vl", "qwen3-coder"];
+async function ollamaPanel() {
+  const box = $("#olBox");
+  if (!box) return;
+  let o;
+  try { o = await api("/models/ollama"); } catch (e) { return; }
+  if (!document.body.contains(box)) return;
+  const fmtGB = (b) => (b / 1e9).toFixed(1);
+  const pulls = o.pulls.map((p) => {
+    const pct = p.total ? Math.floor((p.completed / p.total) * 100) : 0;
+    const state = !p.done ? `${esc(p.status)} ${p.total ? `${pct}% (${fmtGB(p.completed)}/${fmtGB(p.total)} GB)` : ""}`
+      : p.ok ? `✅ ${T("ol_done")}` : `❌ ${p.error === "ollama_not_running" ? T("ol_off") : esc(p.error)}`;
+    return `<div class="small"><b>${esc(p.model)}</b>: ${state}${!p.done ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}</div>`;
+  }).join("");
+  box.innerHTML = `<p class="small">${o.available ? `<span class="dot ok"></span> ${T("ol_on")}` : `<span class="dot bad"></span> ${T("ol_off")} <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>`}</p>
+    <p class="small">${T("ollama_found")}: ${o.models.map((m) => `<span class="badge">${esc(m)}</span>`).join(" ") || "—"}</p>
+    <label>${T("ol_pull")}</label>
+    <div class="row"><input type="text" id="olName" list="olList" placeholder="qwen3:8b" style="direction:ltr" autocomplete="off">
+      <datalist id="olList">${OLLAMA_SUGGESTED.map((m) => `<option value="${m}">`).join("")}</datalist>
+      <button class="btn primary shrink" id="olPull" ${o.available ? "" : "disabled"}>${T("ol_pull_btn")}</button></div>
+    <p class="small muted">${T("ol_hint")}</p>${pulls}`;
+  $("#olPull").onclick = async () => {
+    const name = $("#olName").value.trim() || "qwen3:8b";
+    try { await api("/models/ollama/pull", { method: "POST", body: { text: name } }); ollamaPanel(); } catch (e) { fail(e); }
+  };
+  if (o.pulls.some((p) => !p.done)) setTimeout(ollamaPanel, 1500);
+}
 pages.models = async (el) => {
   const [sec, st, usage] = await Promise.all([api("/secrets"), api("/settings"), api("/usage")]);
   const routes = Object.keys(st.routes);
@@ -533,7 +560,7 @@ pages.models = async (el) => {
     <div class="card"><h3>${T("keys")}</h3>${keyRow("anthropic_api_key", T("key_anthropic"))}${keyRow("openai_api_key", T("key_openai"))}
       <label>${T("base_url")}</label><input type="url" id="obase" value="${esc(st.openai_base_url)}">
       <h3 style="margin-top:16px">${T("ollama")}</h3><input type="url" id="ourl" value="${esc(st.ollama_url)}">
-      <p class="small">${T("ollama_found")}: ${(st.ollama_models || []).map((m) => `<span class="badge">${esc(m)}</span>`).join(" ") || "—"}</p></div>
+      <div id="olBox"></div></div>
     <div class="card"><h3>${T("month_cost")}: $${usage.month_spend.toFixed(2)}</h3>
       <label>${T("budget")}</label><input type="number" id="budget" min="0" step="1" value="${st.monthly_budget_usd}">
       <p><label class="switch"><input type="checkbox" id="ws" ${st.web_search_enabled ? "checked" : ""}> ${T("web_search")}</label></p>
@@ -545,6 +572,7 @@ pages.models = async (el) => {
       <div class="row"><select data-effort="${r}">${["low", "medium", "high", "xhigh", "max"].map((e) => `<option ${st.effort[r] === e ? "selected" : ""}>${e}</option>`).join("")}</select>
       <button class="btn small shrink" data-test="${r}">${T("test_route")}</button></div></div>`).join("")}</div>
     <p><button class="btn primary" id="saveModels">${T("save")}</button></p></div>`;
+  ollamaPanel();
   el.querySelectorAll("[data-savekey]").forEach((b) => b.onclick = async () => {
     const n = b.dataset.savekey; await api("/secrets", { method: "PUT", body: { name: n, value: el.querySelector(`[data-key="${n}"]`).value } }); toast(T("saved")); render(); });
   el.querySelectorAll("[data-test]").forEach((b) => b.onclick = async () => {

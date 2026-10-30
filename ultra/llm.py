@@ -8,6 +8,8 @@ Providers:
 from __future__ import annotations
 
 import base64
+import json
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -60,6 +62,7 @@ class Router:
         self._anthropic = None
         self._anthropic_key = None
         self.anthropic_http = None   # optional custom HTTP client (tests, proxies)
+        self.pulls: dict[str, dict] = {}   # Ollama model downloads started from the dashboard
 
     # ------------------------------------------------------------ availability
     def provider_status(self) -> dict:
@@ -81,6 +84,53 @@ class Router:
         self.db.set_setting("ollama_models", models)
         return ok
 
+    OLLAMA_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,100}$")
+
+    async def pull_ollama(self, model: str) -> dict:
+        """Download a model into the local Ollama, recording progress in self.pulls[model]."""
+        p = self.pulls[model] = {"model": model, "status": "starting", "completed": 0, "total": 0,
+                                 "done": False, "ok": False, "error": ""}
+        url = self.db.get_setting("ollama_url")
+        try:
+            async with self.http.stream("POST", f"{url}/api/pull", json={"model": model, "name": model, "stream": True},
+                                        timeout=httpx.Timeout(None, connect=10)) as r:
+                if r.status_code >= 400:
+                    raise LLMError(f"HTTP {r.status_code}: {(await r.aread())[:200].decode(errors='replace')}")
+                async for line in r.aiter_lines():
+                    if not line.strip():
+                        continue
+                    j = json.loads(line)
+                    if j.get("error"):
+                        raise LLMError(j["error"])
+                    p["status"] = j.get("status", p["status"])
+                    if j.get("total"):
+                        p["total"], p["completed"] = j["total"], j.get("completed", 0)
+            # Verify: the model must now be listed by Ollama.
+            await self.probe_ollama()
+            installed = self.db.get_setting("ollama_models", [])
+            if model not in installed and f"{model}:latest" not in installed:
+                raise LLMError("model not listed by Ollama after download")
+            p["ok"] = True
+        except httpx.ConnectError:
+            p["error"] = "ollama_not_running"
+        except Exception as e:
+            p["error"] = str(e)[:300]
+        finally:
+            p["done"] = True
+        return p
+
+    def _installed_ollama(self, model: str) -> str:
+        """The configured model if it is installed, otherwise the first installed one (e.g. qwen3:4b
+        on a PC with less memory), so a local model works whichever one the user downloaded."""
+        installed = self.db.get_setting("ollama_models", []) or []
+        if not installed:
+            return model   # list unknown: let Ollama answer for itself
+        for name in (model, f"{model}:latest"):
+            if name in installed:
+                return name
+        general = [m for m in installed if not any(k in m for k in ("vl", "coder", "embed", "vision"))]
+        return (general or installed)[0]
+
     def any_available(self) -> bool:
         return any(self.provider_status().values())
 
@@ -90,7 +140,11 @@ class Router:
         out = []
         for c in routes.get(route) or routes.get("chat") or []:
             provider, _, model = c.partition(":")
-            if status.get(provider):
+            if provider == "ollama" and status.get(provider):
+                model = self._installed_ollama(model)
+                if not model:
+                    continue
+            if status.get(provider) and (provider, model) not in out:
                 out.append((provider, model))
         return out
 

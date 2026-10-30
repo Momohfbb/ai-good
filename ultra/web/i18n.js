@@ -71,7 +71,7 @@ window.I18N = {
     set: "محفوظ", not_set: "غير محفوظ", routes: "توجيه النماذج حسب نوع المهمة", route_hint: "ترتيب النماذج لكل نوع مهمة: يُستعمل أول نموذج متوفر، والتالي احتياطي. الصيغة provider:model في كل سطر.",
     effort: "مستوى التفكير", budget: "الحد الشهري للإنفاق ($)", usage: "الاستهلاك (30 يوماً)", calls: "الطلبات",
     cost: "التكلفة", web_search: "البحث في الإنترنت عبر Claude (حوالي 0.01$ لكل بحث)", cross_check: "مراجعة الإجابات بنموذج ثانٍ (تكلفة إضافية)",
-    ollama: "النماذج المحلية (Ollama) — مجانية وتعمل بدون إنترنت", ollama_found: "النماذج المثبتة", base_url: "عنوان خدمة OpenAI المتوافقة",
+    ollama: "النماذج المحلية (Ollama) — مجانية وتعمل بدون إنترنت", ollama_found: "النماذج المثبتة", bad_model_name: "اسم النموذج غير صالح", ol_on: "Ollama يعمل على هذا الكمبيوتر", ol_off: "Ollama غير مشغّل أو غير مثبت. ثبّته من", ol_pull: "تحميل نموذج", ol_pull_btn: "تحميل", ol_done: "تم التحميل وأصبح جاهزاً", ol_hint: "اختر من القائمة: qwen3:8b للاستعمال العام، qwen3:4b أخف للأجهزة الضعيفة، qwen2.5vl للصور، qwen3-coder للبرمجة (كبير). النماذج حجمها عدة غيغابايت، ويمكنك متابعة العمل أثناء التحميل.", base_url: "عنوان خدمة OpenAI المتوافقة",
     test_route: "اختبار", rt_plan: "التخطيط", rt_chat: "المحادثة", rt_research: "البحث والتحليل", rt_writing: "الكتابة",
     rt_coding: "البرمجة", rt_vision: "الرؤية (الصور)", rt_verify: "المراجعة",
     // reports
@@ -150,7 +150,7 @@ window.I18N = {
     set: "saved", not_set: "not set", routes: "Model routing per task type", route_hint: "Model order for each task type: the first available model is used, the next is a fallback. One provider:model per line.",
     effort: "Thinking effort", budget: "Monthly spending limit ($)", usage: "Usage (30 days)", calls: "Calls",
     cost: "Cost", web_search: "Web search through Claude (about $0.01 per search)", cross_check: "Review answers with a second model (extra cost)",
-    ollama: "Local models (Ollama) — free and offline", ollama_found: "Installed models", base_url: "OpenAI-compatible base URL",
+    ollama: "Local models (Ollama) — free and offline", ollama_found: "Installed models", bad_model_name: "Invalid model name", ol_on: "Ollama is running on this PC", ol_off: "Ollama is not running or not installed. Get it from", ol_pull: "Download a model", ol_pull_btn: "Download", ol_done: "Downloaded and ready", ol_hint: "Pick from the list: qwen3:8b for general use, qwen3:4b lighter for weaker PCs, qwen2.5vl for images, qwen3-coder for code (large). Models are several GB; you can keep working while they download.", base_url: "OpenAI-compatible base URL",
     test_route: "Test", rt_plan: "Planning", rt_chat: "Chat", rt_research: "Research", rt_writing: "Writing",
     rt_coding: "Coding", rt_vision: "Vision", rt_verify: "Review",
     success_rate: "Success rate", avg_time: "Average task time", failing: "Failing actions", load24: "CPU and RAM (24h)",

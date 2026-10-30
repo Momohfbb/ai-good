@@ -541,6 +541,26 @@ def create_app(data_dir: Path | None = None, telegram_api: str = "https://api.te
             svc.bot.bot_username = ""
         return {"ok": True}
 
+    @app.get("/api/models/ollama")
+    async def ollama_state(request: Request, dev=A):
+        svc = S(request)
+        ok = await svc.router.probe_ollama()
+        return {"available": ok, "models": svc.db.get_setting("ollama_models", []),
+                "pulls": list(svc.router.pulls.values())}
+
+    @app.post("/api/models/ollama/pull")
+    async def ollama_pull(body: TextIn, request: Request, dev=A):
+        svc = S(request)
+        model = body.text.strip()
+        if not svc.router.OLLAMA_NAME.match(model):
+            raise HTTPException(400, "bad_model_name")
+        cur = svc.router.pulls.get(model)
+        if cur and not cur["done"]:
+            return {"ok": True, "already": True}
+        svc.db.audit(f"{dev['kind']}:{dev['name']}", "ollama_pull", model)
+        svc._bg.append(asyncio.create_task(svc.router.pull_ollama(model)))
+        return {"ok": True}
+
     @app.post("/api/models/test")
     async def model_test(body: TextIn, request: Request, dev=A):
         route = body.text or "chat"

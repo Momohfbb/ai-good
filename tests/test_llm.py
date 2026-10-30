@@ -73,3 +73,49 @@ def test_budget_blocks_paid_models(make_services):
     run(svc.router.complete("chat", "hi"))          # first call spends ~$0.014
     with pytest.raises(BudgetExceeded):
         run(svc.router.complete("chat", "again"))
+
+
+def test_ollama_pull_progress_and_verification(make_services):
+    import httpx
+    installed = []
+
+    def handler(request):
+        if request.url.path.endswith("/api/tags"):
+            return httpx.Response(200, json={"models": [{"name": m} for m in installed]})
+        if request.url.path.endswith("/api/pull"):
+            name = json.loads(request.content)["model"]
+            if name == "missing":
+                return httpx.Response(200, text='{"status":"pulling manifest"}\n{"error":"file does not exist"}\n')
+            installed.append(name + ":latest")
+            lines = ['{"status":"pulling manifest"}',
+                     '{"status":"downloading","total":1000,"completed":400}',
+                     '{"status":"downloading","total":1000,"completed":1000}', '{"status":"success"}']
+            return httpx.Response(200, text="\n".join(lines) + "\n")
+        return httpx.Response(404)
+
+    svc = make_services(handler=handler)
+    p = run(svc.router.pull_ollama("qwen3"))
+    assert p["done"] and p["ok"] and p["total"] == 1000 and p["completed"] == 1000
+    assert "qwen3:latest" in svc.db.get_setting("ollama_models")
+    assert svc.router.provider_status()["ollama"]
+    bad = run(svc.router.pull_ollama("missing"))
+    assert bad["done"] and not bad["ok"] and "does not exist" in bad["error"]
+
+
+def test_ollama_pull_when_not_running(make_services):
+    import httpx
+
+    def handler(request):
+        raise httpx.ConnectError("refused")
+
+    svc = make_services(handler=handler)
+    p = run(svc.router.pull_ollama("qwen3:8b"))
+    assert p["done"] and not p["ok"] and p["error"] == "ollama_not_running"
+
+
+def test_ollama_uses_installed_model_when_configured_one_is_missing(make_services):
+    svc = make_services()
+    svc.db.set_setting("ollama_available", True)
+    svc.db.set_setting("ollama_models", ["qwen2.5vl:latest", "qwen3:4b"])
+    assert svc.router.candidates("chat") == [("ollama", "qwen3:4b")]
+    assert svc.router.candidates("vision") == [("ollama", "qwen2.5vl:latest")]
