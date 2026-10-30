@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from .agents import Agent, action_catalog
 from .language import LANG_NAMES, detect
 from .llm import LLMError, Router
+from .pc import allowed_apps
 from .security import suspicious_command
 
 
@@ -34,6 +35,9 @@ STEP_LABELS = {
     "write_note": ("كتابة ملاحظة", "Write note"), "list": ("عرض الملفات", "List files"),
     "organize": ("ترتيب الملفات حسب النوع", "Organize files by type"), "system_status": ("حالة النظام", "System status"),
     "time": ("الوقت والتاريخ", "Date and time"), "chat": ("الإجابة", "Answer"),
+    "open_app": ("فتح البرنامج", "Open program"), "open_url": ("فتح الصفحة في المتصفح", "Open web page"),
+    "screenshot": ("لقطة شاشة", "Screenshot"),
+    "close_app": ("إغلاق البرنامج (النص غير المحفوظ فيه يضيع)", "Close program (unsaved text in it is lost)"),
 }
 
 
@@ -116,12 +120,47 @@ def _r_time(m):
     return [_s("manager", "time", "Time")]
 
 
+APP_ALIASES = {
+    "notepad": ("notepad", "المفكرة", "المفكره", "مفكرة", "نوت باد", "النوت باد", "bloc-notes", "bloc notes"),
+    "calculator": ("calculator", "calc", "الحاسبة", "الحاسبه", "الآلة الحاسبة", "الالة الحاسبة", "آلة حاسبة", "calculatrice"),
+    "paint": ("paint", "الرسام", "الرسّام", "برنامج الرسم"),
+    "explorer": ("explorer", "file explorer", "مستكشف الملفات", "explorateur"),
+}
+
+
+@rule(r"^(?:افتح|افتحلي|إفتح|حل|حلّ|حللي|شغل|شغّل|open|ouvre|lance)\s+(?:لي\s+)?(?P<a>[^\n]{2,60}?)\s*[.!]?$")
+def _r_open(m):
+    a = m["a"].strip(" \"'«»").lower()
+    for name, words in APP_ALIASES.items():
+        if a in words:
+            return [_s("pc", "open_app", "Open program", app=name)]
+    if re.fullmatch(r"(?:https?://)?[\w\-]+(?:\.[\w\-]+)+(?:/\S*)?", a):
+        return [_s("pc", "open_url", "Open web page", url=a)]
+    return None      # not a known program: let the model planner decide
+
+
+@rule(r"^(?:أغلق|اغلق|إغلاق|سكر|سكّر|close|ferme)\s+(?P<a>[^\n]{2,60}?)\s*[.!]?$")
+def _r_close(m):
+    a = m["a"].strip(" \"'«»").lower()
+    for name, words in APP_ALIASES.items():
+        if a in words:
+            return [_s("pc", "close_app", "Close program", app=name)]
+    return None
+
+
+@rule(r"^(?:خذ|خوذ|دير|ديرلي|اعمل|take)?\s*(?:لقطة شاشة|لقطة الشاشة|سكرين|سكرين شوت|صور الشاشة|صوّر الشاشة|screenshot|a screenshot|capture d'écran)\s*[.!]?$")
+def _r_screenshot(m):
+    return [_s("pc", "screenshot", "Screenshot")]
+
+
 def rule_plan(text: str) -> list[dict] | None:
     t = text.strip()
     for pat, fn in RULES:
         m = pat.match(t)
         if m:
-            return fn(m)
+            steps = fn(m)
+            if steps is not None:
+                return steps
     return None
 
 
@@ -136,7 +175,9 @@ Rules:
 - A param value may be "$prev" to use the previous step's text result.
 - Files live in the workspace; paths are relative to it. Received files are in "inbox/".
 - If the request is ambiguous, or asks for something dangerous or that no action can do, return no steps and put a short question or explanation in "clarification" (in the owner's language).
-- Never invent actions. Controlling the PC screen, the phone, games, browsers and smart-home devices is not available yet.
+- Never invent actions. Controlling the phone, games, browser pages and smart-home devices is not available yet.
+- PC control (pc.*) is for the Windows PC the brain runs on. pc.open_app only accepts these app names: {apps}.
+  To write in a program: open it with pc.open_app, then pc.type_text, then pc.press_keys if needed.
 - "description" is a short label in the owner's language.
 - The owner's language is {language}: write "summary", "clarification" and descriptions in it.
 {attachments}
@@ -192,7 +233,8 @@ class Brain:
             return Plan(lang, text[:80], [], clarification="no_model", warnings=warnings, planner="none")
 
         att = ("\nFiles attached to this request (workspace paths): " + ", ".join(attachments) + "\n") if attachments else ""
-        prompt = PLANNER_PROMPT.format(catalog=action_catalog(self.agents), request=text, attachments=att,
+        apps = ", ".join(a["name"] for a in allowed_apps(self.router.db)) or "none"
+        prompt = PLANNER_PROMPT.format(catalog=action_catalog(self.agents), request=text, attachments=att, apps=apps,
                                        language=LANG_NAMES.get(lang, "Arabic"))
         try:
             res = await self.router.complete("plan", prompt, max_tokens=4000)

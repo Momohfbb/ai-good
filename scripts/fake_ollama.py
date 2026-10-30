@@ -38,9 +38,14 @@ class Handler(BaseHTTPRequestHandler):
         prompt = req["messages"][-1]["content"]
         if "You are the planner" in prompt:
             request = prompt.split("<request>")[-1].split("</request>")[0].strip()
-            text = json.dumps({"summary": "أفكار مشاريع", "clarification": "", "steps": [
-                {"agent": "manager", "action": "chat", "params": {"message": request}, "description": "الرد"}]},
-                ensure_ascii=False)
+            if "المفكرة" in request and "notepad" in prompt:
+                # PC control test: open Notepad, then type the text after the colon.
+                steps = [{"agent": "pc", "action": "open_app", "params": {"app": "notepad"}, "description": "فتح المفكرة"},
+                         {"agent": "pc", "action": "type_text", "params": {"text": request.split(":", 1)[-1].strip()},
+                          "description": "كتابة النص"}]
+            else:
+                steps = [{"agent": "manager", "action": "chat", "params": {"message": request}, "description": "الرد"}]
+            text = json.dumps({"summary": "خطة", "clarification": "", "steps": steps}, ensure_ascii=False)
         else:
             text = "1. مخبزة صغيرة\n2. توصيل طلبات\n3. متجر إلكتروني للملابس"
         self._json(200, {"model": MODEL, "message": {"role": "assistant", "content": text},

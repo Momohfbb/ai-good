@@ -439,7 +439,10 @@ def build_agents() -> dict[str, Agent]:
               "عبر Home Assistant في المرحلة 9. الأقفال وأجهزة السلامة تحتاج موافقة إضافية.",
               "Through Home Assistant in phase 9. Locks and safety devices need extra approval.", phase=9),
     ]
-    return {a.key: a for a in agents}
+    out = {a.key: a for a in agents}
+    from .pc import register as register_pc
+    register_pc(out["pc"])
+    return out
 
 
 def action_catalog(agents: dict[str, Agent]) -> str:

@@ -18,6 +18,7 @@ from .brain import Brain
 from .db import Database
 from .llm import BudgetExceeded, LLMError, LLMResult, Router
 from .messages import err, t
+from .pc import Desktop
 
 STATUSES = ("pending", "running", "paused", "needs_approval", "completed", "failed", "stopped")
 ACTIVE = ("pending", "running", "paused", "needs_approval")
@@ -73,6 +74,7 @@ class TaskEngine:
         self.agents = agents
         self.ws = ws
         self.started_at = time.time()
+        self.desktop = Desktop()
         self._running: dict[str, asyncio.Task] = {}
         self._sem: asyncio.Semaphore | None = None
         self._sem_size = 0
@@ -191,7 +193,10 @@ class TaskEngine:
         if suspicious and not plan.get("approved_plan"):
             plan["approved_plan"] = True          # this approval was for the whole request
         elif task["current_step"] < len(steps):
-            steps[task["current_step"]]["approved"] = True   # this approval was for one risky step
+            # One risky step, or every PC step of the task when they were listed together.
+            for j in plan.pop("approve_steps", None) or [task["current_step"]]:
+                if j < len(steps):
+                    steps[j]["approved"] = True
         self._save(task_id, status="pending", plan=plan, steps=steps, approval_reason=None)
         self.log(task_id, "info", f"approved by {actor}")
         self.db.audit(actor, "task_approved", task_id)
@@ -346,6 +351,16 @@ class TaskEngine:
             agent = self.agents[step["agent"]]
             action = agent.actions[step["action"]]
             if action.risk == "approval" and not step.get("approved"):
+                if agent.key == "pc":
+                    # Ask once for all PC steps, showing each one exactly as it will run.
+                    group = [j for j in range(i, len(steps)) if steps[j]["agent"] == "pc"
+                             and agent.actions[steps[j]["action"]].risk == "approval" and not steps[j].get("approved")]
+                    plan["approve_steps"] = group
+                    self._save(task_id, steps=steps, current_step=i, plan=plan)
+                    await self._needs_approval(task_id, t("pc_steps", lang) + "\n" + "\n".join(
+                        f"{n + 1}. {steps[j]['description']} ({steps[j]['action']} "
+                        f"{json.dumps(steps[j]['params'], ensure_ascii=False)[:200]})" for n, j in enumerate(group)))
+                    return
                 self._save(task_id, steps=steps, current_step=i)
                 await self._needs_approval(task_id, t("risky_step", lang, step=step["description"]) +
                                            f" ({step['agent']}.{step['action']} {json.dumps(step['params'], ensure_ascii=False)[:200]})")
