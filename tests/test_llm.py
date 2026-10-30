@@ -133,3 +133,26 @@ def test_local_openai_compatible_server_is_free(make_services, fake_llm):
     svc.db.set_setting("openai_base_url", "http://localhost:1234/v1")
     res = run(svc.router.complete("chat", "hi"))
     assert res.provider == "openai" and res.cost_usd == 0
+
+
+def test_ollama_probe_tries_localhost_and_reports_error(make_services):
+    import httpx
+    sent = []
+
+    def handler(request):
+        if request.url.host == "127.0.0.1":
+            raise httpx.ConnectError("refused")
+        if request.url.path.endswith("/api/tags"):
+            return httpx.Response(200, json={"models": [{"name": "gemma4:12b"}]})
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "اهلا"}})
+
+    svc = make_services(handler=handler)
+    assert run(svc.router.probe_ollama())
+    assert svc.db.get_setting("ollama_url") == "http://localhost:11434"
+    res = run(svc.router.complete("chat", "hi"))
+    assert res.model == "gemma4:12b" and sent[-1]["options"]["num_ctx"] == 16384
+
+    svc2 = make_services(handler=lambda r: (_ for _ in ()).throw(httpx.ConnectError("refused")))
+    assert not run(svc2.router.probe_ollama())
+    assert "ConnectError" in svc2.db.get_setting("ollama_error")

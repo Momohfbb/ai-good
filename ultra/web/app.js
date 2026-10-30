@@ -539,7 +539,8 @@ async function ollamaPanel() {
       : p.ok ? `✅ ${T("ol_done")}` : `❌ ${p.error === "ollama_not_running" ? T("ol_off") : esc(p.error)}`;
     return `<div class="small"><b>${esc(p.model)}</b>: ${state}${!p.done ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}</div>`;
   }).join("");
-  box.innerHTML = `<p class="small">${o.available ? `<span class="dot ok"></span> ${T("ol_on")}` : `<span class="dot bad"></span> ${T("ol_off")} <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>`}</p>
+  box.innerHTML = `<p class="small">${o.available ? `<span class="dot ok"></span> ${T("ol_on")}` : `<span class="dot bad"></span> ${T("ol_off")} <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>
+      ${o.error ? `<br><span class="muted" style="direction:ltr;display:inline-block">${esc(o.error)}</span>` : ""}`}</p>
     <p class="small">${T("ollama_found")}: ${o.models.map((m) => `<span class="badge">${esc(m)}</span>`).join(" ") || "—"}</p>
     ${o.available ? `<p><button class="btn primary" id="olBest">${T("ol_best")} ${esc(o.recommended)}</button>
       <span class="small muted">${T("ol_ram")}: ${o.ram_gb} GB</span></p>` : `<p><a class="btn primary" href="https://ollama.com/download/OllamaSetup.exe" target="_blank" rel="noopener">${T("ol_get")}</a></p>`}

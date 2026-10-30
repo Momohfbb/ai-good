@@ -558,6 +558,7 @@ def create_app(data_dir: Path | None = None, telegram_api: str = "https://api.te
         import psutil
         ram = psutil.virtual_memory().total
         return {"available": ok, "models": svc.db.get_setting("ollama_models", []),
+                "url": svc.db.get_setting("ollama_url"), "error": svc.db.get_setting("ollama_error", ""),
                 "pulls": list(svc.router.pulls.values()), "ram_gb": round(ram / 1024**3),
                 "recommended": svc.router.recommended_ollama(ram)}
 

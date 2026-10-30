@@ -54,6 +54,7 @@ DEFAULT_SETTINGS: dict = {
     # "*" is used for models not listed so OpenAI spend always counts toward the budget.
     "openai_prices": {"gpt-5": [1.25, 10.0], "*": [1.25, 10.0]},
     "ollama_url": "http://127.0.0.1:11434",
+    "ollama_num_ctx": 16384,         # context asked of Ollama; its own default (4k) is too small for planning
     "openai_base_url": "https://api.openai.com/v1",
     # Telegram
     "telegram_enabled": False,

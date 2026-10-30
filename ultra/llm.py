@@ -73,15 +73,25 @@ class Router:
         }
 
     async def probe_ollama(self) -> bool:
-        url = self.db.get_setting("ollama_url")
-        try:
-            r = await self.http.get(f"{url}/api/tags", timeout=3)
-            ok = r.status_code == 200
-            models = [m["name"] for m in r.json().get("models", [])] if ok else []
-        except Exception:
-            ok, models = False, []
+        url = self.db.get_setting("ollama_url").rstrip("/")
+        alt = {"127.0.0.1": "localhost", "localhost": "127.0.0.1"}.get(httpx.URL(url).host)
+        tries = [url] + ([url.replace(httpx.URL(url).host, alt, 1)] if alt else [])
+        ok, models, error = False, [], ""
+        for u in tries:
+            try:
+                r = await self.http.get(f"{u}/api/tags", timeout=3)
+                if r.status_code != 200:
+                    error = f"{u}: HTTP {r.status_code}"
+                    continue
+                ok, models = True, [m["name"] for m in r.json().get("models", [])]
+                if u != url:
+                    self.db.set_setting("ollama_url", u)   # the other spelling of this PC works
+                break
+            except Exception as e:
+                error = f"{u}: {type(e).__name__} {str(e)[:150]}"
         self.db.set_setting("ollama_available", ok)
         self.db.set_setting("ollama_models", models)
+        self.db.set_setting("ollama_error", "" if ok else error)
         return ok
 
     @staticmethod
@@ -286,7 +296,8 @@ class Router:
         if images:
             msg["images"] = [base64.b64encode(i.data).decode() for i in images]
         msgs = ([{"role": "system", "content": system}] if system else []) + list(history or []) + [msg]
-        r = await self.http.post(f"{url}/api/chat", json={"model": model, "messages": msgs, "stream": False},
+        r = await self.http.post(f"{url}/api/chat", json={"model": model, "messages": msgs, "stream": False,
+                                       "options": {"num_ctx": int(self.db.get_setting("ollama_num_ctx", 16384) or 16384)}},
                                  timeout=600)
         if r.status_code >= 400:
             raise LLMError(f"HTTP {r.status_code}: {r.text[:200]}")
