@@ -231,11 +231,20 @@ const LATIN_WORDS = new Set(("a an the to of in on for and or is are be it this 
   "please can could make create write open show list find add remove delete save send read note notes file files project " +
   "task tasks hello hi thanks yes no ok test help de la le les un une des et pour est je tu il mon ma mes avec dans sur " +
   "bonjour merci oui non salam wesh rani kifach nchouf").split(" "));
+// French AZERTY keyboards put some characters on other physical keys; map them back to the QWERTY key first.
+const AZERTY = { a: "q", q: "a", z: "w", w: "z", m: ";", ",": "m", ";": ",", ":": ".", "!": "/", "ù": "'", "²": "`" };
+const AR_COMMON = new Set(("في من على الى إلى عن مع هل ما ماذا كيف لماذا متى اين أين انا أنا انت أنت هو هي نحن هذا هذه ذلك " +
+  "كل شي شيء لي لك اكتب أكتب اعطني أعطني افكار أفكار ارسل ارسلها أرسل انشئ أنشئ مشروع ملف ملاحظة تذكر يمكن ترجمة " +
+  "بالعربية العربية واش راني كيفاش نحب بزاف").split(" "));
 function wrongLayoutArabic(text) {
   if (/[\u0600-\u06FF]/.test(text) || !/[a-z]/i.test(text) || /https?:|www\.|@/.test(text)) return "";
   const words = text.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.some((w) => LATIN_WORDS.has(w.replace(/[^a-zé']/g, "")))) return "";
-  return [...text.toLowerCase()].map((c) => AR_KEYS[c] || c).join("");
+  const conv = (t, map) => [...t.toLowerCase()].map((c) => AR_KEYS[map[c] || c] || c).join("");
+  const score = (ar) => ar.split(/\s+/).filter((w) => AR_COMMON.has(w) || w.startsWith("ال") || w.startsWith("بال")).length;
+  const qwerty = conv(text, {}), azerty = conv(text, AZERTY);
+  const frenchOnly = /[ùéèàç²]/.test(text);
+  return score(azerty) > score(qwerty) || (frenchOnly && score(azerty) === score(qwerty)) ? azerty : qwerty;
 }
 async function send(force) {
   const text = $("#cmd").value.trim();
