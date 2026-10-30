@@ -76,6 +76,18 @@ jobs:
           $p = Start-Process $exe -ArgumentList "--no-browser","--port","8766" -PassThru
           python scripts/smoke_test.py --url http://127.0.0.1:8766 --data $data | Tee-Object test-results/installed-smoke.txt
           $code = $LASTEXITCODE
+          # Update while the app is running (as a user would): setup must stop it and finish.
+          $upd = Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru
+          if (-not $upd.WaitForExit(180000)) { Stop-Process -Id $upd.Id -Force; Write-Error "update stalled while the app was running"; exit 1 }
+          if ($upd.ExitCode -ne 0) { Write-Error "update failed with exit code $($upd.ExitCode)"; exit 1 }
+          if (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) { Write-Error "old app still running after update"; exit 1 }
+          "update over running app: OK" | Tee-Object -Append test-results/installed-smoke.txt
+          $p = Start-Process $exe -ArgumentList "--no-browser","--port","8766" -PassThru
+          Start-Sleep 6
+          try { $h = Invoke-RestMethod http://127.0.0.1:8766/api/health; if (-not $h.ok) { throw "bad health" } }
+          catch { Write-Error "updated app did not start: $_"; exit 1 }
+          "updated app starts, account kept: setup_needed=$($h.setup_needed)" | Tee-Object -Append test-results/installed-smoke.txt
+          if ($h.setup_needed) { Write-Error "account lost after update"; exit 1 }
           Stop-Process -Id $p.Id -Force
           Start-Sleep 2
           Start-Process "$env:LOCALAPPDATA\Programs\UltraAI\unins000.exe" -ArgumentList "/VERYSILENT" -Wait

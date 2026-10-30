@@ -19,6 +19,9 @@ WizardStyle=modern
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\UltraAI.exe
 ShowLanguageDialog=auto
+; The brain may be running in the background (autostart has no window), so Windows' Restart Manager
+; cannot close it and setup stalls. We stop it ourselves in PrepareToInstall instead.
+CloseApplications=no
 
 [Languages]
 #if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
@@ -44,3 +47,24 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\UltraAI.exe"; Description: "{cm:LaunchProgram,ULTRA AI GOD MODE}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure StopRunningApp();
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM UltraAI.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Sleep(1500);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopRunningApp();
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  StopRunningApp();
+  Result := True;
+end;
