@@ -125,3 +125,11 @@ def test_recommended_ollama_model_by_memory():
     from ultra.llm import Router
     assert Router.recommended_ollama(24 * 1024**3) == "qwen3:8b"
     assert Router.recommended_ollama(8 * 1024**3) == "qwen3:4b"
+
+
+def test_local_openai_compatible_server_is_free(make_services, fake_llm):
+    svc = make_services()
+    svc.vault.set("openai_api_key", "lm-studio")
+    svc.db.set_setting("openai_base_url", "http://localhost:1234/v1")
+    res = run(svc.router.complete("chat", "hi"))
+    assert res.provider == "openai" and res.cost_usd == 0

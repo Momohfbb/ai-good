@@ -275,6 +275,8 @@ class Router:
         tin, tout = u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
         prices = self.db.get_setting("openai_prices") or {}
         pin, pout = prices.get(model) or prices.get("*") or (0, 0)
+        if httpx.URL(base).host in ("localhost", "127.0.0.1", "::1"):
+            pin = pout = 0   # a local server such as LM Studio costs nothing
         return LLMResult(j["choices"][0]["message"].get("content") or "", "openai", model,
                          tin, tout, round(tin / 1e6 * pin + tout / 1e6 * pout, 6))
 
