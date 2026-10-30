@@ -122,7 +122,11 @@ class Desktop:
 
     def screenshot(self, path: str) -> None:
         self.check()
-        self._gui.screenshot().save(path)
+        try:
+            from PIL import ImageGrab
+        except ImportError:
+            raise ActionError("pc_support_missing")
+        ImageGrab.grab(all_screens=True).save(path, "PNG")
 
     def paste(self, text: str) -> None:
         """Type any text (Arabic included) by pasting it, then put the old clipboard back."""
